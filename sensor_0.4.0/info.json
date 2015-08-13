@@ -1,0 +1,9 @@
+{
+  "name": "sensor",
+  "version": "0.4.0",
+  "title": "Sensor",
+  "author": "Kikkers",
+  "contact": "www.factorioforums.com",
+  "description": "Adds a structure that outputs the contents of an adjacent object to the circuit network.",
+	"dependencies": ["base"]
+}

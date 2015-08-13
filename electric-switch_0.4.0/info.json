@@ -1,0 +1,9 @@
+{
+  "name": "electric-switch",
+  "version": "0.4.0",
+  "title": "Electric Switch",
+  "author": "Kikkers",
+  "contact": "www.factorioforums.com",
+  "description": "Adds a structure that conditionally allows or blocks power transfer (Circuit wire is unaffected). ",
+	"dependencies": ["base"]
+}

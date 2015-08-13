@@ -1,0 +1,9 @@
+{
+  "name": "micro-accumulator",
+  "version": "0.4.0",
+  "title": "Micro Accumulator",
+  "author": "Kikkers",
+  "contact": "www.factorioforums.com",
+  "description": "Adds a rapidly charging or discharging accumulator with a tiny capacity. Combine with the sensor mod to detect events in the electric network.",
+	"dependencies": ["base"]
+}

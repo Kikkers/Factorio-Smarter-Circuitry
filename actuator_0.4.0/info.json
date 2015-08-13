@@ -1,0 +1,9 @@
+{
+  "name": "actuator",
+  "version": "0.4.0",
+  "title": "Actuator",
+  "author": "Kikkers",
+  "contact": "www.factorioforums.com",
+  "description": "Adds a structure that conditionally toggles the activity of an adjacent object.",
+	"dependencies": ["base"]
+}

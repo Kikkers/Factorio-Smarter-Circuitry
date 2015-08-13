@@ -69,20 +69,9 @@ game.on_event(defines.events.on_tick, function(event)
 						actuator.state = newState
 						setIndicator(actuator)
 						actuator.tickFunction(actuator)
-					elseif actuator.behavesAsToggle and actuator.base.energy > 0 then
+					elseif not actuator.behavesAsToggle and actuator.base.energy > 0 then
 						actuator.tickFunction(actuator)
 					end
-					
-					if behavesAsToggle then
-						if newState ~= actuator.state then
-							actuator.state = newState
-							setIndicator(actuator)
-							actuator.tickFunction(actuator)
-						end
-					elseif actuator.base.energy > 0 then
-						actuator.tickFunction(actuator)
-					end
-					
 				end
 			else
 				resetActuator(actuator)
@@ -119,8 +108,42 @@ function checkStationary(actuator)
 	return false
 end
 
+local magic_tick_limit = 8
 function tickactuator_train(actuator)
-	actuator.target.train.manual_mode = actuator.state
+
+	-- need some tricky waiting a few ticks or else inserters won't work on the train (no clue why, must be magic)
+
+	if actuator.state then
+		
+		if actuator.waitT == nil then
+			actuator.waitF = nil
+			actuator.waitT = 0
+		else
+			if actuator.waitT < magic_tick_limit then
+				actuator.waitT = actuator.waitT + 1
+				if actuator.waitT == magic_tick_limit then
+					actuator.target.train.manual_mode = actuator.state
+				end
+			end
+		end
+		
+	else
+		
+		if actuator.waitF == nil then
+			actuator.waitT = nil
+			actuator.waitF = 0
+		else
+			if actuator.waitF < magic_tick_limit then
+				actuator.waitF = actuator.waitF + 1
+				if actuator.waitF == magic_tick_limit then
+					actuator.target.train.manual_mode = actuator.state
+				end
+			end
+		end
+		
+	end
+	
+	
 end
 
 function tickactuator_car(actuator)
@@ -141,6 +164,8 @@ function resetActuator(actuator)
 	actuator.state = testConditionFulfilled(actuator.base)
 	actuator.checkForMovement = false
 	actuator.behavesAsToggle = true
+	actuator.waitT = nil
+	actuator.waitF = nil
 	restoreGateSegments(actuator)
 	if actuator.base.energy > 0 then
 		setIndicator(actuator)
@@ -221,7 +246,6 @@ function tickactuator_activation(actuator)
 end
 
 searchHandler = {
-	["cargo-wagon"] = tickactuator_train,
 	["locomotive"] = tickactuator_train,
 	["transport-belt"] = tickactuator_flip,
 	["splitter"] = tickactuator_flip,
@@ -245,6 +269,7 @@ function findTarget(actuator)
 			actuator.target = entity		
 			if func == tickactuator_train or func == tickactuator_car then
 				actuator.checkForMovement = true
+				actuator.behavesAsToggle = false
 			elseif func == tickactuator_gate then
 				actuator.behavesAsToggle = false
 				findGateSegments(actuator)

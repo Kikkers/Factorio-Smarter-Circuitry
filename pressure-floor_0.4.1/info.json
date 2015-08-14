@@ -1,0 +1,9 @@
+{
+  "name": "pressure-floor",
+  "version": "0.4.1",
+  "title": "Pressure Floor",
+  "author": "Kikkers",
+  "contact": "www.factorioforums.com",
+  "description": "Adds a new type of flooring that when combined with a directional sensor is capable of detecting mobile objects. Once the sensor is placed targeting a pressure floor tile, a square region extending in the direction of the sensor will be used as the detecting area. The size of this area depends on how many pressure floor tiles are present.",
+	"dependencies": ["base"]
+}

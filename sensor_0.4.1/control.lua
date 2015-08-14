@@ -43,21 +43,21 @@ end
 game.on_event(defines.events.on_tick, function(event)
 	
 	for i,sensor in ipairs(global.sensors) do
-		if sensor ~= nil then
-			if sensor.base.valid and sensor.output.valid then
-				sensor.output.get_inventory(1).clear()
-				if sensor.target ~= nil and sensor.target.valid then
-					if sensor.base.energy > 0 then
-						sensor.tickFunction(sensor)
-					end
-				else
-					sensor.target = nil
-					sensor.tickFunction = nil
-					findTarget(sensor)
+		if sensor.base.valid and sensor.output.valid then
+			sensor.output.get_inventory(1).clear()
+			if sensor.target ~= nil and sensor.target.valid then
+				if sensor.base.energy > 0 then
+					sensor.tickFunction(sensor)
 				end
+			elseif sensor.tiles ~= nil then
+				sensor.tickFunction(sensor)
 			else
-				global.sensors[i] = nil
+				sensor.target = nil
+				sensor.tickFunction = nil
+				findTarget(sensor)
 			end
+		else
+			global.sensors[i] = nil
 		end
 	end
 	
@@ -92,6 +92,21 @@ function insert_inventory(sensor, index)
 	end
 end
 
+function insert_inventory_player(sensor)
+	insert_inventory(sensor, 1)
+	insert_inventory(sensor, 2)
+	insert_inventory(sensor, 3)
+	insert_inventory(sensor, 4)
+	insert_inventory(sensor, 5)
+	insert_inventory(sensor, 6)
+end
+
+function insert_inventory_car(sensor)
+	insert_inventory(sensor, 1)
+	insert_inventory(sensor, 2)
+	insert_inventory(sensor, 3)
+end
+
 function insert_energy(sensor)
 	local charge = math.ceil((sensor.target.energy - 999.9) / 1000)
 	if charge > 0 then 
@@ -119,28 +134,32 @@ function ticksensor_container(sensor)
 end
 
 function ticksensor_cargowagon(sensor)
+	sensor.output.insert{name = "detected-train", count = 1}
 	if checkStationary(sensor) then
 		insert_inventory(sensor, 1)
-	else
-		sensor.output.insert{name = "moving-train", count = 1}
 	end
 end
 
 function ticksensor_locomotive(sensor)
+	sensor.output.insert{name = "detected-train", count = 1}
 	if checkStationary(sensor) then
 		insert_inventory(sensor, 1)
 		insert_energy(sensor)
-	else
-		sensor.output.insert{name = "moving-train", count = 1}
 	end
 end
 
 function ticksensor_car(sensor)
+	sensor.output.insert{name = "detected-car", count = 1}
 	if checkStationary(sensor) then
-		insert_inventory(sensor, 1)
-		insert_inventory(sensor, 2)
-		insert_inventory(sensor, 3)
+		insert_inventory_car(sensor)
 		insert_energy(sensor)
+	end
+end
+
+function ticksensor_player(sensor)
+	sensor.output.insert{name = "detected-player", count = 1}
+	if checkStationary(sensor) then
+		insert_inventory_player(sensor)
 	end
 end
 
@@ -148,7 +167,7 @@ function ticksensor_furnace(sensor)
 	insert_inventory(sensor, 1)
 	insert_inventory(sensor, 2)
 	insert_inventory(sensor, 3)
-	--insert_inventory(sensor, 4) -> ignore modules
+	--insert_inventory(sensor, 4) --> ignore modules
 	insert_energy(sensor)
 end
 
@@ -159,14 +178,14 @@ end
 function ticksensor_assembler(sensor)
 	insert_inventory(sensor, 2)
 	insert_inventory(sensor, 3)
-	--insert_inventory(sensor, 4) -> ignore modules
+	--insert_inventory(sensor, 4) --> ignore modules
 	insert_energy(sensor)
 end
 
 function ticksensor_lab(sensor)
 	insert_inventory(sensor, 1)
 	insert_inventory(sensor, 2)
-	--insert_inventory(sensor, 3) -> ignore modules
+	--insert_inventory(sensor, 3) --> ignore modules
 	insert_energy(sensor)
 end
 
@@ -180,6 +199,7 @@ searchHandler = {
 	["container"] = ticksensor_container,
 	["logistics-container"] = ticksensor_container,
 	["smart-container"] = ticksensor_container,
+	["player"] = ticksensor_player,
 	["cargo-wagon"] = ticksensor_cargowagon,
 	["locomotive"] = ticksensor_locomotive,
 	["car"] = ticksensor_car,
@@ -193,8 +213,9 @@ searchHandler = {
 }
 
 function findTarget(sensor)
+	local surface = sensor.base.surface
 	
-	local adj = sensor.base.surface.find_entities{{sensor.targetX - 0.1, sensor.targetY - 0.1}, {sensor.targetX + 0.1, sensor.targetY + 0.1}}
+	local adj = surface.find_entities{{sensor.targetX - 0.1, sensor.targetY - 0.1}, {sensor.targetX + 0.1, sensor.targetY + 0.1}}
 	for _,entity in ipairs(adj) do
 	
 		local func = searchHandler[entity.type]
@@ -209,7 +230,167 @@ function findTarget(sensor)
 		end
 		
 	end
+	
+	local tile = surface.get_tile(sensor.targetX, sensor.targetY)
+	if tile.name == "pressure-floor" then
+		local collectedTiles = {}
+		sensor.tiles = findfloor(sensor, surface, collectedTiles)
+		sensor.base.surface.set_tiles(collectedTiles)
+		sensor.tilewait = 0
+		sensor.tickFunction = ticksensor_pressurefloor
+		return true
+	end
+	
 	return false 
+end
+
+pressurefloorHandler = {
+	["locomotive"] = "detected-train",
+	["cargo-wagon"] = "detected-train",
+	["car"] = "detected-car",
+	["player"] = "detected-player",
+	["small-biter"] = "detected-alien",
+	["medium-biter"] = "detected-alien",
+	["big-biter"] = "detected-alien",
+	["behemoth-biter"] = "detected-alien",
+	["small-spitter"] = "detected-alien",
+	["medium-spitter"] = "detected-alien",
+	["big-spitter"] = "detected-alien",
+	["behemoth-spitter"] = "detected-alien",
+}
+
+pressurefloorInventoriesHandler = {
+	["car"] = insert_inventory_car,
+	["player"] = insert_inventory_player,
+	["locomotive"] = ticksensor_container,
+	["cargo-wagon"] = ticksensor_container,
+}
+
+function ticksensor_pressurefloor(sensor)
+	if sensor.tilewait == nil then
+		if sensor.base.energy > 0 then
+			local targets = sensor.base.surface.find_entities(sensor.tiles)
+			for _,entity in ipairs(targets) do
+				local detected = pressurefloorHandler[entity.type]
+				if detected ~= nil then
+					sensor.output.insert{name = detected, count = 1}
+					local inventory_insert_func = pressurefloorInventoriesHandler[entity.type]
+					if inventory_insert_func ~= nil then
+						sensor.target = entity
+						inventory_insert_func(sensor)
+						sensor.target = nil
+					end
+				end
+			end
+		end
+	else
+		sensor.tilewait = sensor.tilewait + 1
+		if sensor.tilewait > 15 then
+			sensor.tilewait = nil
+			local collectedTiles = {}
+			findfloor(sensor, sensor.base.surface, collectedTiles)
+			for _,tile in ipairs(collectedTiles) do
+				tile.name = "pressure-floor"
+			end
+			sensor.base.surface.set_tiles(collectedTiles)
+		end
+	end
+end
+
+local tilelimit_length = 25
+local tilelimit_side = 24
+function findfloor(sensor, surface, collectedTiles)
+	local startX = sensor.targetX
+	local startY = sensor.targetY
+	local dir = sensor.base.direction
+	
+	findtilestrip(dir, startX, startY, tilelimit_length, surface, collectedTiles)
+	findtilestrip_sides(dir, startX, startY, surface, collectedTiles)
+	
+	local minX = startX
+	local maxX = startX
+	local minY = startY
+	local maxY = startY
+	for _,tile in ipairs(collectedTiles) do
+		if minX > tile.position[1] then minX = tile.position[1] end
+		if minY > tile.position[2] then minY = tile.position[2] end
+		if maxX < tile.position[1] then maxX = tile.position[1] end
+		if maxY < tile.position[2] then maxY = tile.position[2] end
+	end
+	return {{minX, minY}, {maxX, maxY}}
+end
+
+function findtilestrip_sides(dir, startX, startY, surface, collectedTiles)
+	local offsetX = 0
+	local offsetY = 0
+	if dir == 6 then offsetY = -1
+	elseif dir == 2 then offsetY = 1
+	elseif dir == 0 then offsetX = 1
+	elseif dir == 4 then offsetX = -1
+	end
+	
+	local numForward = #collectedTiles
+	local moreTiles = {}
+	
+	local numLeft = tilelimit_side
+	local numRight = tilelimit_side
+	for i = 1, tilelimit_side do
+		findtilestrip(dir, startX + i * offsetX, startY + i * offsetY, numForward, surface, moreTiles)
+		if #moreTiles ~= numForward then
+			numLeft = i - 1
+			moreTiles = {}
+			break
+		else
+			collectedTiles = TableConcat(collectedTiles, moreTiles)
+			moreTiles = {}
+		end
+	end
+	for i = 1, tilelimit_side do
+		findtilestrip(dir, startX - i * offsetX, startY - i * offsetY, numForward, surface, moreTiles)
+		if #moreTiles ~= numForward then
+			numRight = i - 1
+			moreTiles = {}
+			break
+		else
+			collectedTiles = TableConcat(collectedTiles, moreTiles)
+			moreTiles = {}
+		end
+	end
+	return numLeft, numRight
+end
+
+function TableConcat(t1,t2)
+    for i=1,#t2 do
+        t1[#t1+1] = t2[i]
+    end
+    return t1
+end
+
+function findtilestrip(dir, startX, startY, maxForward, surface, collectedTiles)
+	local offsetX = 0
+	local offsetY = 0
+	if dir == 6 then offsetX = 1
+	elseif dir == 2 then offsetX = -1
+	elseif dir == 0 then offsetY = 1
+	elseif dir == 4 then offsetY = -1
+	end
+	
+	for i = 0, maxForward - 1 do
+		if not findsingletile(startX + i * offsetX, startY + i * offsetY, surface, collectedTiles) then
+			break
+		end
+	end
+end
+
+function findsingletile(x, y, surface, collectedTiles)
+	local tile = surface.get_tile(x, y)
+	if tile.name == "pressure-floor" or tile.name == "active-pressure-floor" then 
+		local info = {name = "active-pressure-floor", position = {x, y}}
+		table.insert(collectedTiles, info)
+		return true
+	else
+		return false
+	end
 end
 
 function getAdjPos(entity)

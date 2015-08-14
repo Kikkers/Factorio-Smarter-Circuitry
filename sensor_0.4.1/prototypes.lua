@@ -33,7 +33,7 @@ data:extend({
 	type = "item-subgroup",
 	name = "virtual-signal-sensor",
 	group = "signals",
-	order = "f"
+	order = "z"
 },
 {
 	type = "recipe",
@@ -75,11 +75,38 @@ data:extend({
 },
 {
 	type = "item",
-	name = "moving-train",
-	icon = "__sensor__/graphics/moving-train-icon.png",
+	name = "detected-player",
+	icon = "__sensor__/graphics/player-icon.png",
 	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
 	order = "d",
+	stack_size = 1000
+},
+{
+	type = "item",
+	name = "detected-alien",
+	icon = "__base__/graphics/icons/medium-biter.png",
+	flags = {"goes-to-main-inventory"},
+	subgroup = "virtual-signal-sensor",
+	order = "e",
+	stack_size = 1000
+},
+{
+	type = "item",
+	name = "detected-car",
+	icon = "__sensor__/graphics/car-icon.png",
+	flags = {"goes-to-main-inventory"},
+	subgroup = "virtual-signal-sensor",
+	order = "f",
+	stack_size = 1000
+},
+{
+	type = "item",
+	name = "detected-train",
+	icon = "__sensor__/graphics/train-icon.png",
+	flags = {"goes-to-main-inventory"},
+	subgroup = "virtual-signal-sensor",
+	order = "g",
 	stack_size = 1000
 },
 {

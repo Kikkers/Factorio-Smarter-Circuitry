@@ -108,11 +108,13 @@ function checkStationary(actuator)
 	return false
 end
 
-local magic_tick_limit = 8
+local magic_tick_limit = 1
 function tickactuator_train(actuator)
 
-	-- need some tricky waiting a few ticks or else inserters won't work on the train (no clue why, must be magic)
-
+	if actuator.target.train.speed ~= 0 then
+		return -- apparently the train speed is quite reliable in combination with a single tick delay
+	end
+	
 	if actuator.state then
 		
 		if actuator.waitT == nil then
@@ -142,7 +144,6 @@ function tickactuator_train(actuator)
 		end
 		
 	end
-	
 	
 end
 

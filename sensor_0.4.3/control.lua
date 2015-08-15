@@ -108,7 +108,7 @@ function insert_inventory_car(sensor)
 end
 
 function insert_energy(sensor)
-	local charge = math.ceil((sensor.target.energy - 999.9) / 1000)
+	local charge = math.ceil(sensor.target.energy / 1000)
 	if charge > 0 then 
 		sensor.output.insert{name = "energy-unit", count = charge}
 	end
@@ -195,6 +195,12 @@ function ticksensor_roboport(sensor)
 	insert_energy(sensor)
 end
 
+function ticksensor_micro_accumulator(sensor)
+	if sensor.target.energy > 5000 then
+		sensor.output.insert{name = "energy-unit", count = 1}
+	end
+end
+
 searchHandler = {
 	["container"] = ticksensor_container,
 	["logistics-container"] = ticksensor_container,
@@ -224,7 +230,12 @@ function findTarget(sensor)
 			sensor.target = entity	
 			return true
 		elseif entity.energy ~= nil then
-			sensor.tickFunction = insert_energy
+			if entity.name == "micro-accumulator" then
+				sensor.tickFunction = ticksensor_micro_accumulator
+				sensor.prevCharge = 0
+			else
+				sensor.tickFunction = insert_energy
+			end 
 			sensor.target = entity	
 			return true
 		end
@@ -249,14 +260,7 @@ pressurefloorHandler = {
 	["cargo-wagon"] = "detected-train",
 	["car"] = "detected-car",
 	["player"] = "detected-player",
-	["small-biter"] = "detected-alien",
-	["medium-biter"] = "detected-alien",
-	["big-biter"] = "detected-alien",
-	["behemoth-biter"] = "detected-alien",
-	["small-spitter"] = "detected-alien",
-	["medium-spitter"] = "detected-alien",
-	["big-spitter"] = "detected-alien",
-	["behemoth-spitter"] = "detected-alien",
+	["unit"] = "detected-alien",
 }
 
 pressurefloorInventoriesHandler = {
@@ -463,6 +467,12 @@ end)
 
 game.on_event(defines.events.on_robot_built_entity, function(event)
 	createSensor(event.created_entity)
+end)
+
+game.on_event(defines.events.on_player_rotated_entity, function(event)
+	if event.entity.name == "directional-sensor" then
+		event.entity.direction = (event.entity.direction + 4) % 8 -- basically a fuck you to any rotation request
+	end
 end)
 
 game.on_event(defines.events.on_preplayer_mined_item, function(event)

@@ -34,7 +34,7 @@ data:extend({
     energy_source =
     {
       type = "electric",
-      buffer_capacity = "1kJ",
+      buffer_capacity = "10kJ",
       usage_priority = "terciary",
       input_flow_limit = "1GW",
       output_flow_limit = "1GW"

@@ -108,43 +108,20 @@ function checkStationary(actuator)
 	return false
 end
 
-local magic_tick_limit = 1
 function tickactuator_train(actuator)
 
 	if actuator.target.train.speed ~= 0 then
-		return -- apparently the train speed is quite reliable in combination with a single tick delay
+		return 
 	end
 	
-	if actuator.state then
-		
-		if actuator.waitT == nil then
-			actuator.waitF = nil
-			actuator.waitT = 0
-		else
-			if actuator.waitT < magic_tick_limit then
-				actuator.waitT = actuator.waitT + 1
-				if actuator.waitT == magic_tick_limit then
-					actuator.target.train.manual_mode = actuator.state
-				end
-			end
+	if actuator.target.train.manual_mode ~= actuator.state then
+		if actuator.wait == nil then
+			actuator.target.train.manual_mode = actuator.state
+			--actuator.wait = 0
 		end
-		
-	else
-		
-		if actuator.waitF == nil then
-			actuator.waitT = nil
-			actuator.waitF = 0
-		else
-			if actuator.waitF < magic_tick_limit then
-				actuator.waitF = actuator.waitF + 1
-				if actuator.waitF == magic_tick_limit then
-					actuator.target.train.manual_mode = actuator.state
-				end
-			end
-		end
-		
+	else 
+		actuator.wait = nil
 	end
-	
 end
 
 function tickactuator_car(actuator)
@@ -165,8 +142,7 @@ function resetActuator(actuator)
 	actuator.state = testConditionFulfilled(actuator.base)
 	actuator.checkForMovement = false
 	actuator.behavesAsToggle = true
-	actuator.waitT = nil
-	actuator.waitF = nil
+	actuator.wait = nil
 	restoreGateSegments(actuator)
 	if actuator.base.energy > 0 then
 		setIndicator(actuator)

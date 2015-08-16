@@ -9,7 +9,20 @@ game.on_init(function()
 end)
 
 game.on_load(function()
+	for _, force in ipairs(game.forces) do 
+		force.reset_technologies() 
+		if force.technologies["circuit-network"].researched then 
+			force.recipes["directional-actuator"].enabled = true
+		end
+	end
+	
 	init()
+	
+	for _,actuator in ipairs(global.actuators) do
+		if actuator.target ~= nil and actuator.target.valid then
+			findFunction(actuator, actuator.target)
+		end
+	end
 end)
 
 function init()
@@ -115,12 +128,7 @@ function tickactuator_train(actuator)
 	end
 	
 	if actuator.target.train.manual_mode ~= actuator.state then
-		if actuator.wait == nil then
-			actuator.target.train.manual_mode = actuator.state
-			--actuator.wait = 0
-		end
-	else 
-		actuator.wait = nil
+		actuator.target.train.manual_mode = actuator.state
 	end
 end
 
@@ -235,26 +243,31 @@ ignoredHandler = {
 	["player"] = true,
 }
 
+function findFunction(actuator, entity)
+	local func = searchHandler[entity.type]
+	if func ~= nil then
+		actuator.tickFunction = func
+		return true
+	elseif ignoredHandler[entity.type] == nil and entity.energy ~= nil then
+		actuator.tickFunction = tickactuator_activation
+		return true
+	end
+	return false
+end
+
 function findTarget(actuator)
 	
 	local adj = actuator.base.surface.find_entities_filtered{area = {{actuator.targetX - 0.1, actuator.targetY - 0.1}, {actuator.targetX + 0.1, actuator.targetY + 0.1}}, force = actuator.base.force}
 	for _,entity in ipairs(adj) do
-	
-		local func = searchHandler[entity.type]
-		if func ~= nil then
-			actuator.tickFunction = func
-			actuator.target = entity		
-			if func == tickactuator_train or func == tickactuator_car then
+		if findFunction(actuator, entity) then
+			actuator.target = entity	
+			if actuator.tickFunction == tickactuator_train or actuator.tickFunction == tickactuator_car then
 				actuator.checkForMovement = true
 				actuator.behavesAsToggle = false
-			elseif func == tickactuator_gate then
+			elseif actuator.tickFunction == tickactuator_gate then
 				actuator.behavesAsToggle = false
 				findGateSegments(actuator)
 			end
-			return true
-		elseif ignoredHandler[entity.type] == nil and entity.energy ~= nil then
-			actuator.tickFunction = tickactuator_activation
-			actuator.target = entity
 			return true
 		end
 		

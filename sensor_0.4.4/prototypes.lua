@@ -75,6 +75,24 @@ data:extend({
 },
 {
 	type = "item",
+	name = "fluid-unit",
+	icon = "__sensor__/graphics/fluid-unit-icon.png",
+	flags = {"goes-to-main-inventory"},
+	subgroup = "virtual-signal-sensor",
+	order = "c",
+	stack_size = 1000
+},
+{
+	type = "item",
+	name = "heat-unit",
+	icon = "__sensor__/graphics/heat-unit-icon.png",
+	flags = {"goes-to-main-inventory"},
+	subgroup = "virtual-signal-sensor",
+	order = "c",
+	stack_size = 1000
+},
+{
+	type = "item",
 	name = "detected-player",
 	icon = "__sensor__/graphics/player-icon.png",
 	flags = {"goes-to-main-inventory"},

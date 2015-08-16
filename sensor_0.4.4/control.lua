@@ -9,7 +9,20 @@ game.on_init(function()
 end)
 
 game.on_load(function()
+	for _, force in ipairs(game.forces) do 
+		force.reset_technologies() 
+		if force.technologies["circuit-network"].researched then 
+			force.recipes["directional-sensor"].enabled = true
+		end
+	end
+
 	init()
+	
+	for _,sensor in ipairs(global.sensors) do
+		if sensor.target ~= nil and sensor.target.valid then
+			findFunction(sensor, sensor.target)
+		end
+	end
 end)
 
 function init()
@@ -44,17 +57,24 @@ game.on_event(defines.events.on_tick, function(event)
 	
 	for i,sensor in ipairs(global.sensors) do
 		if sensor.base.valid and sensor.output.valid then
-			sensor.output.get_inventory(1).clear()
-			if sensor.target ~= nil and sensor.target.valid then
-				if sensor.base.energy > 0 then
+			if sensor.tickskip == nil then
+				sensor.output.get_inventory(1).clear()
+				if sensor.target ~= nil and sensor.target.valid then
+					if sensor.base.energy > 0 then
+						sensor.tickFunction(sensor)
+					end
+				elseif sensor.tiles ~= nil then
 					sensor.tickFunction(sensor)
+				else
+					sensor.target = nil
+					sensor.tickFunction = nil
+					findTarget(sensor)
 				end
-			elseif sensor.tiles ~= nil then
-				sensor.tickFunction(sensor)
 			else
-				sensor.target = nil
-				sensor.tickFunction = nil
-				findTarget(sensor)
+				sensor.tickskip = sensor.tickskip - 1
+				if sensor.tickskip <= 0 then
+					sensor.tickskip = nil
+				end
 			end
 		else
 			global.sensors[i] = nil
@@ -201,6 +221,39 @@ function ticksensor_micro_accumulator(sensor)
 	end
 end
 
+function ticksensor_drill(sensor)
+	sensor.tickskip = 20
+	
+	local pos = sensor.target.position
+	local radius = sensor.base.force.technologies["data-dummy-" .. sensor.target.name].research_unit_energy / 60
+	sensor.drillarea = {{pos.x - radius, pos.y - radius}, {pos.x + radius, pos.y + radius}}
+
+	local totals = {}
+	local resources = sensor.base.surface.find_entities_filtered{area = sensor.drillarea, type = "resource"}
+	for _,resource in ipairs(resources) do
+		if totals[resource.name] == nil then
+			totals[resource.name] = resource.amount
+		else
+			totals[resource.name] = totals[resource.name] + resource.amount
+		end
+	end
+	for k,v in pairs(totals) do
+		if game.item_prototypes[k] ~= nil then
+			sensor.output.insert{name = k, count = v}
+		else
+			sensor.output.insert{name = "fluid-unit", count = v}
+		end
+	end
+end
+
+function ticksensor_fluidbox(sensor)
+	local fbs = sensor.target.fluidbox
+	for i = 1, #fbs do
+		sensor.output.insert{name = "fluid-unit", count = math.ceil(fbs[1].amount - 0.5)}
+		sensor.output.insert{name = "heat-unit", count = math.ceil(fbs[1].temperature - 0.5)}
+	end
+end
+
 searchHandler = {
 	["container"] = ticksensor_container,
 	["logistics-container"] = ticksensor_container,
@@ -216,30 +269,38 @@ searchHandler = {
 	["lab"] = ticksensor_lab,
 	["roboport"] = ticksensor_roboport,
 	["ammo-turret"] = ticksensor_ammoturret,
+	["mining-drill"] = ticksensor_drill,
 }
+
+function findFunction(sensor, entity)
+
+	local func = searchHandler[entity.type]
+	if func ~= nil then
+		sensor.tickFunction = func
+		return true
+	elseif entity.energy ~= nil then
+		if entity.name == "micro-accumulator" then
+			sensor.tickFunction = ticksensor_micro_accumulator
+		else
+			sensor.tickFunction = insert_energy
+		end 
+		return true
+	elseif entity.fluidbox ~= nil and #entity.fluidbox > 0 then
+		sensor.tickFunction = ticksensor_fluidbox
+		return true
+	end
+		
+end
 
 function findTarget(sensor)
 	local surface = sensor.base.surface
 	
 	local adj = surface.find_entities{{sensor.targetX - 0.1, sensor.targetY - 0.1}, {sensor.targetX + 0.1, sensor.targetY + 0.1}}
 	for _,entity in ipairs(adj) do
-	
-		local func = searchHandler[entity.type]
-		if func ~= nil then
-			sensor.tickFunction = func
-			sensor.target = entity	
-			return true
-		elseif entity.energy ~= nil then
-			if entity.name == "micro-accumulator" then
-				sensor.tickFunction = ticksensor_micro_accumulator
-				sensor.prevCharge = 0
-			else
-				sensor.tickFunction = insert_energy
-			end 
-			sensor.target = entity	
+		if findFunction(sensor, entity) then
+			sensor.target = entity
 			return true
 		end
-		
 	end
 	
 	local tile = surface.get_tile(sensor.targetX, sensor.targetY)

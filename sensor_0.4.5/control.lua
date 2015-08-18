@@ -9,13 +9,6 @@ game.on_init(function()
 end)
 
 game.on_load(function()
-	for _, force in ipairs(game.forces) do 
-		force.reset_technologies() 
-		if force.technologies["circuit-network"].researched then 
-			force.recipes["directional-sensor"].enabled = true
-		end
-	end
-
 	init()
 	
 	for _,sensor in ipairs(global.sensors) do
@@ -249,8 +242,16 @@ end
 function ticksensor_fluidbox(sensor)
 	local fbs = sensor.target.fluidbox
 	for i = 1, #fbs do
-		sensor.output.insert{name = "fluid-unit", count = math.ceil(fbs[1].amount - 0.5)}
-		sensor.output.insert{name = "heat-unit", count = math.ceil(fbs[1].temperature - 0.5)}
+		if fbs[i] ~= nil then
+			local amount = math.ceil(fbs[i].amount - 0.5)
+			local temperature = math.ceil(fbs[i].temperature - 0.5)
+			if amount > 0 then 
+				sensor.output.insert{name = "fluid-unit", count = amount}
+			end
+			if temperature > 0 then 
+				sensor.output.insert{name = "heat-unit", count = temperature}
+			end
+		end
 	end
 end
 

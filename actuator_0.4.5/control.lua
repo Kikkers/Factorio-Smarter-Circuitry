@@ -9,13 +9,6 @@ game.on_init(function()
 end)
 
 game.on_load(function()
-	for _, force in ipairs(game.forces) do 
-		force.reset_technologies() 
-		if force.technologies["circuit-network"].researched then 
-			force.recipes["directional-actuator"].enabled = true
-		end
-	end
-	
 	init()
 	
 	for _,actuator in ipairs(global.actuators) do

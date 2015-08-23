@@ -127,6 +127,18 @@ function insert_energy(sensor)
 	end
 end
 
+function insert_railtanker(sensor)
+	if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+		local tankerval = remote.call("railtanker", "getLiquidByWagon", sensor.target)
+		if tankerval ~= nil and tankerval.amount ~= nil then
+			local amount = math.ceil(tankerval.amount)
+			if amount > 0 then
+				sensor.output.insert{name = "fluid-unit", count = amount}
+			end
+		end
+	end
+end
+
 function checkStationary(sensor)
 	if sensor.vehiclepos == nil then
 		sensor.vehiclepos = {x = sensor.target.position.x, y = sensor.target.position.y}
@@ -150,6 +162,7 @@ function ticksensor_cargowagon(sensor)
 	sensor.output.insert{name = "detected-train", count = 1}
 	if checkStationary(sensor) then
 		insert_inventory(sensor, 1)
+		insert_railtanker(sensor)
 	end
 end
 
@@ -287,8 +300,18 @@ function findFunction(sensor, entity)
 		end 
 		return true
 	elseif entity.fluidbox ~= nil and #entity.fluidbox > 0 then
-		sensor.tickFunction = ticksensor_fluidbox
-		return true
+		-- Ignored fluidbox entities.
+		local ignored = { "rail-tanker-proxy-noconnect", "rail-tanker-proxy" }
+		local result = true
+		for _, v in pairs(ignored) do
+			if entity.name == v then
+				result = false
+			end
+		end
+		if result then
+			sensor.tickFunction = ticksensor_fluidbox
+			return true
+		end
 	end
 		
 end

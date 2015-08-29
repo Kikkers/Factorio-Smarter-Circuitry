@@ -47,85 +47,88 @@ data:extend({
 	result = "directional-sensor"
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "belt-left",
 	icon = "__sensor__/graphics/belt-left-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "a",
-	stack_size = 1000
+	order = "z[sensor-c]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "belt-right",
 	icon = "__sensor__/graphics/belt-right-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "b",
-	stack_size = 1000
+	order = "z[sensor-c]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "energy-unit",
 	icon = "__sensor__/graphics/energy-unit-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "c",
-	stack_size = 10000
+	order = "z[sensor-c]",
 },
 {
-	type = "item",
-	name = "fluid-unit",
-	icon = "__sensor__/graphics/fluid-unit-icon.png",
-	flags = {"goes-to-main-inventory"},
-	subgroup = "virtual-signal-sensor",
-	order = "c",
-	stack_size = 1000
-},
-{
-	type = "item",
+    type = "virtual-signal",
 	name = "heat-unit",
 	icon = "__sensor__/graphics/heat-unit-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "c",
-	stack_size = 1000
+	order = "z[sensor-c]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "detected-player",
 	icon = "__sensor__/graphics/player-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "d",
-	stack_size = 1000
+	order = "z[sensor-b]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "detected-alien",
 	icon = "__base__/graphics/icons/medium-biter.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "e",
-	stack_size = 1000
+	order = "z[sensor-b]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "detected-car",
 	icon = "__sensor__/graphics/car-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "f",
-	stack_size = 1000
+	order = "z[sensor-b]",
 },
 {
-	type = "item",
+    type = "virtual-signal",
 	name = "detected-train",
 	icon = "__sensor__/graphics/train-icon.png",
-	flags = {"goes-to-main-inventory"},
 	subgroup = "virtual-signal-sensor",
-	order = "g",
-	stack_size = 1000
+	order = "z[sensor-b]",
+},
+{
+    type = "virtual-signal",
+	name = "home-lrobots",
+	icon = "__sensor__/graphics/lbot-rdy.png",
+	subgroup = "virtual-signal-sensor",
+	order = "z[sensor-a]",
+},
+{
+    type = "virtual-signal",
+	name = "home-crobots",
+	icon = "__sensor__/graphics/cbot-rdy.png",
+	subgroup = "virtual-signal-sensor",
+	order = "z[sensor-a]",
+},
+{
+    type = "virtual-signal",
+	name = "all-lrobots",
+	icon = "__sensor__/graphics/lbot-all.png",
+	subgroup = "virtual-signal-sensor",
+	order = "z[sensor-a]",
+},
+{
+    type = "virtual-signal",
+	name = "all-crobots",
+	icon = "__sensor__/graphics/cbot-all.png",
+	subgroup = "virtual-signal-sensor",
+	order = "z[sensor-a]",
 },
 {
 	type = "item",
@@ -194,8 +197,15 @@ data:extend({
         shift = {0.4375, 0.5625},
       }
     },
-
+    
     activity_led_sprites = nullsymbols,
+    activity_led_light_offsets =
+    {
+      {0,0},
+      {0,0},
+      {0,0},
+      {0,0}
+    },
 
     equal_symbol_sprites = nullsymbols,
     greater_symbol_sprites = nullsymbols,
@@ -208,16 +218,19 @@ data:extend({
     output_connection_points = nullconnections,
     circuit_wire_max_distance = 7.5
   },
-{
-	type = "smart-container",
-	name = "directional-sensor-output",
+  {
+    type = "constant-combinator",
+    name = "sensor-output",
 	icon = "__sensor__/graphics/sensor_icon.png",
 	minable = {hardness = 0.2, mining_time = 0.5, result = "directional-sensor"},
     max_health = 0,
+
     collision_box = {{-0.35, -0.35}, {0.35, 0.35}},
     selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
-    inventory_size = 10000,
-    picture =
+
+    item_slot_count = 10000, -- must be at least the total amount of signal-able items in the current instance, to be safe.
+
+    sprite =
     {
       filename = "__base__/graphics/entity/smart-chest/smart-chest.png",
       priority = "extra-high",
@@ -239,7 +252,7 @@ data:extend({
       }
     },
     circuit_wire_max_distance = 7.5
-},
+  },
 })
 
 table.insert(data.raw["technology"]["circuit-network"].effects, { type = "unlock-recipe", recipe = "directional-sensor"})

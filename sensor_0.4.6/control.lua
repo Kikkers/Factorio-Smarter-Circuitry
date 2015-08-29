@@ -11,9 +11,12 @@ end)
 game.on_load(function()
 	init()
 	
+	-- migration code for old functions
 	for _,sensor in ipairs(global.sensors) do
 		if sensor.target ~= nil and sensor.target.valid then
 			findFunction(sensor, sensor.target)
+		elseif sensor.tiles ~= nil then
+			sensor.tickFunction = ticksensor_pressurefloor
 		end
 	end
 end)
@@ -24,10 +27,16 @@ function init()
 	else
 		for _,sensor in ipairs(global.sensors) do
 			insertAt(sensor.base.position, sensor)
+			if not sensor.output.valid then
+				sensor.output = createOutput(sensor.base)
+			end
 			insertAt(sensor.output.position, sensor)
 		end
 	end
 end
+
+--------------------------
+-- entity part tracking --
 
 positions = {}
 
@@ -46,19 +55,23 @@ function getAt(pos)
 	return positions[x][y]
 end
 
+-----------------------------------
+-- tick event (common functions) --
+
 game.on_event(defines.events.on_tick, function(event)
 	
 	for i,sensor in ipairs(global.sensors) do
 		if sensor.base.valid and sensor.output.valid then
 			if sensor.tickskip == nil then
-				sensor.output.get_inventory(1).clear()
+				
 				if sensor.target ~= nil and sensor.target.valid then
 					if sensor.base.energy > 0 then
-						sensor.tickFunction(sensor)
+						tick_once(sensor)
 					end
 				elseif sensor.tiles ~= nil then
-					sensor.tickFunction(sensor)
+					tick_once(sensor)
 				else
+				
 					sensor.target = nil
 					sensor.tickFunction = nil
 					findTarget(sensor)
@@ -90,40 +103,106 @@ game.on_event(defines.events.on_tick, function(event)
 	end
 end)
 
-function ticksensor_belt(sensor) 
-	local left = sensor.target.get_transport_line(1).get_item_count() -- left
-	local right = sensor.target.get_transport_line(2).get_item_count() -- right
-
-	if left > 0 then sensor.output.insert{name = "belt-left", count = left} end
-	if right > 0 then sensor.output.insert{name = "belt-right", count = right} end
+function tick_once(sensor)
+	local detected_table = {items = {}, fluids = {}, signals = {}}
+	sensor.tickFunction(sensor, detected_table)
+	local t = {parameters = {}}
+	local i = 1
+	for k,v in pairs(detected_table.items) do
+		t.parameters[i]={signal={type = "item", name = k}, count = v, index = i}
+		i = i + 1
+	end
+	for k,v in pairs(detected_table.fluids) do
+		t.parameters[i]={signal={type = "fluid", name = k}, count = v, index = i}
+		i = i + 1
+	end
+	for k,v in pairs(detected_table.signals) do
+		t.parameters[i]={signal={type = "virtual", name = k}, count = v, index = i}
+		i = i + 1
+	end
+	sensor.output.set_circuit_condition(1, t)
 end
-
-function insert_inventory(sensor, index)
-	local contentsTable = sensor.target.get_inventory(index).get_contents()
-	for k,v in pairs(contentsTable) do
-		sensor.output.insert{name = k, count = v}
+		
+function add_detected_items(detected_table, itemName, itemCount)
+	local existing = detected_table.items[itemName]
+	if existing == nil then 
+		detected_table.items[itemName] = itemCount 
+	else
+		detected_table.items[itemName] = existing + itemCount
 	end
 end
 
-function insert_inventory_player(sensor)
-	insert_inventory(sensor, 1)
-	insert_inventory(sensor, 2)
-	insert_inventory(sensor, 3)
-	insert_inventory(sensor, 4)
-	insert_inventory(sensor, 5)
-	insert_inventory(sensor, 6)
+function add_detected_fluids(detected_table, fluidName, fluidCount)
+	local existing = detected_table.fluids[fluidName]
+	if existing == nil then 
+		detected_table.fluids[fluidName] = fluidCount 
+	else
+		detected_table.fluids[fluidName] = existing + fluidCount
+	end
 end
 
-function insert_inventory_car(sensor)
-	insert_inventory(sensor, 1)
-	insert_inventory(sensor, 2)
-	insert_inventory(sensor, 3)
+function add_detected_signals(detected_table, signalName, signalCount)
+	local existing = detected_table.signals[signalName]
+	if existing == nil then 
+		detected_table.signals[signalName] = signalCount 
+	else
+		detected_table.signals[signalName] = existing + signalCount
+	end
 end
 
-function insert_energy(sensor)
+------------------------------------------
+-- tick event (type specific functions) --
+
+function ticksensor_belt(sensor, detected_table) 
+	local left = sensor.target.get_transport_line(1).get_item_count() -- left
+	local right = sensor.target.get_transport_line(2).get_item_count() -- right
+
+	if left > 0 then 
+		add_detected_signals(detected_table, "belt-left", left)
+	end
+	if right > 0 then 
+		add_detected_signals(detected_table, "belt-right", right) 
+	end
+end
+
+function insert_inventory(sensor, index, detected_table)
+	local contentsTable = sensor.target.get_inventory(index).get_contents()
+	for k,v in pairs(contentsTable) do
+		add_detected_items(detected_table, k, v)
+	end
+end
+
+function insert_inventory_player(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	insert_inventory(sensor, 3, detected_table)
+	insert_inventory(sensor, 4, detected_table)
+	insert_inventory(sensor, 5, detected_table)
+	insert_inventory(sensor, 6, detected_table)
+end
+
+function insert_inventory_car(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	insert_inventory(sensor, 3, detected_table)
+end
+
+function insert_energy(sensor, detected_table)
 	local charge = math.ceil(sensor.target.energy / 1000)
 	if charge > 0 then 
-		sensor.output.insert{name = "energy-unit", count = charge}
+		add_detected_signals(detected_table, "energy-unit", charge)
+	end
+end
+
+function insert_railtanker(sensor, detected_table)
+	if remote.interfaces.railtanker and remote.interfaces.railtanker.getLiquidByWagon then
+		local tankerval = remote.call("railtanker", "getLiquidByWagon", sensor.target)
+		if tankerval ~= nil and tankerval.amount ~= nil then
+			local amount = math.ceil(tankerval.amount)
+			if amount > 0 then
+				add_detected_fluids(detected_table, tankerval.type, amount)
+			end
+		end
 	end
 end
 
@@ -142,79 +221,89 @@ function checkStationary(sensor)
 	return false
 end
 
-function ticksensor_container(sensor)
-	insert_inventory(sensor, 1)
+function ticksensor_container(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
 end
 
-function ticksensor_cargowagon(sensor)
-	sensor.output.insert{name = "detected-train", count = 1}
+function ticksensor_cargowagon(sensor, detected_table)
+	add_detected_signals(detected_table, "detected-train", 1)
 	if checkStationary(sensor) then
-		insert_inventory(sensor, 1)
+		insert_inventory(sensor, 1, detected_table)
+		insert_railtanker(sensor, detected_table)
 	end
 end
 
-function ticksensor_locomotive(sensor)
-	sensor.output.insert{name = "detected-train", count = 1}
+function ticksensor_locomotive(sensor, detected_table)
+	add_detected_signals(detected_table, "detected-train", 1)
 	if checkStationary(sensor) then
-		insert_inventory(sensor, 1)
-		insert_energy(sensor)
+		insert_inventory(sensor, 1, detected_table)
+		insert_energy(sensor, detected_table)
 	end
 end
 
-function ticksensor_car(sensor)
-	sensor.output.insert{name = "detected-car", count = 1}
+function ticksensor_car(sensor, detected_table)
+	add_detected_signals(detected_table, "detected-car", 1)
 	if checkStationary(sensor) then
-		insert_inventory_car(sensor)
-		insert_energy(sensor)
+		insert_inventory_car(sensor, detected_table)
+		insert_energy(sensor, detected_table)
 	end
 end
 
-function ticksensor_player(sensor)
-	sensor.output.insert{name = "detected-player", count = 1}
+function ticksensor_player(sensor, detected_table)
+	add_detected_signals(detected_table, "detected-player", 1)
 	if checkStationary(sensor) then
-		insert_inventory_player(sensor)
+		insert_inventory_player(sensor, detected_table)
 	end
 end
 
-function ticksensor_furnace(sensor)
-	insert_inventory(sensor, 1)
-	insert_inventory(sensor, 2)
-	insert_inventory(sensor, 3)
-	--insert_inventory(sensor, 4) --> ignore modules
-	insert_energy(sensor)
+function ticksensor_furnace(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	insert_inventory(sensor, 3, detected_table)
+	--insert_inventory(sensor, 4, detected_table) --> ignore modules
+	insert_energy(sensor, detected_table)
 end
 
-function ticksensor_ammoturret(sensor)
-	insert_inventory(sensor, 1)
+function ticksensor_ammoturret(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
 end
 
-function ticksensor_assembler(sensor)
-	insert_inventory(sensor, 2)
-	insert_inventory(sensor, 3)
-	--insert_inventory(sensor, 4) --> ignore modules
-	insert_energy(sensor)
+function ticksensor_assembler(sensor, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	insert_inventory(sensor, 3, detected_table)
+	--insert_inventory(sensor, 4, detected_table) --> ignore modules
+	insert_energy(sensor, detected_table)
 end
 
-function ticksensor_lab(sensor)
-	insert_inventory(sensor, 1)
-	insert_inventory(sensor, 2)
-	--insert_inventory(sensor, 3) --> ignore modules
-	insert_energy(sensor)
+function ticksensor_lab(sensor, detected_table)
+	insert_inventory(sensor, 1, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	--insert_inventory(sensor, 3, detected_table) --> ignore modules
+	insert_energy(sensor, detected_table)
 end
 
-function ticksensor_roboport(sensor)
-	insert_inventory(sensor, 1)
-	insert_inventory(sensor, 2)
-	insert_energy(sensor)
+function ticksensor_roboport(sensor, detected_table)
+	if sensor.network == nil or not sensor.network.valid then
+		sensor.network = sensor.base.force.find_logistic_network_by_position(sensor.target.position, sensor.base.surface)
+	end
+	if sensor.network ~= nil then
+		add_detected_signals(detected_table, "home-lrobots", sensor.network.available_logistic_robots)
+		add_detected_signals(detected_table, "home-crobots", sensor.network.available_construction_robots)
+		add_detected_signals(detected_table, "all-lrobots", sensor.network.all_logistic_robots)
+		add_detected_signals(detected_table, "all-crobots", sensor.network.all_construction_robots)
+	end
+	insert_inventory(sensor, 1, detected_table)
+	insert_inventory(sensor, 2, detected_table)
+	insert_energy(sensor, detected_table)
 end
 
-function ticksensor_micro_accumulator(sensor)
+function ticksensor_micro_accumulator(sensor, detected_table)
 	if sensor.target.energy > 5000 then
-		sensor.output.insert{name = "energy-unit", count = 1}
+		add_detected_signals(detected_table, "energy-unit", 1)
 	end
 end
 
-function ticksensor_drill(sensor)
+function ticksensor_drill(sensor, detected_table)
 	sensor.tickskip = 20
 	
 	local pos = sensor.target.position
@@ -232,28 +321,31 @@ function ticksensor_drill(sensor)
 	end
 	for k,v in pairs(totals) do
 		if game.item_prototypes[k] ~= nil then
-			sensor.output.insert{name = k, count = v}
-		else
-			sensor.output.insert{name = "fluid-unit", count = v}
+			add_detected_items(detected_table, k, v)
+		elseif game.fluid_prototypes[k] ~= nil then
+			add_detected_fluids(detected_table, k, v)
 		end
 	end
 end
 
-function ticksensor_fluidbox(sensor)
+function ticksensor_fluidbox(sensor, detected_table)
 	local fbs = sensor.target.fluidbox
 	for i = 1, #fbs do
 		if fbs[i] ~= nil then
 			local amount = math.ceil(fbs[i].amount - 0.5)
 			local temperature = math.ceil(fbs[i].temperature - 0.5)
 			if amount > 0 then 
-				sensor.output.insert{name = "fluid-unit", count = amount}
+				add_detected_fluids(detected_table, fbs[i].type, amount)
 			end
 			if temperature > 0 then 
-				sensor.output.insert{name = "heat-unit", count = temperature}
+				add_detected_signals(detected_table, "heat-unit", temperature)
 			end
 		end
 	end
 end
+
+-------------------------------------------
+-- entity type -> tick function mappings --
 
 searchHandler = {
 	["container"] = ticksensor_container,
@@ -273,6 +365,11 @@ searchHandler = {
 	["mining-drill"] = ticksensor_drill,
 }
 
+ignoredHandler = {
+	["rail-tanker-proxy-noconnect"] = true,
+	["rail-tanker-proxy"] = true,
+}
+
 function findFunction(sensor, entity)
 
 	local func = searchHandler[entity.type]
@@ -287,8 +384,11 @@ function findFunction(sensor, entity)
 		end 
 		return true
 	elseif entity.fluidbox ~= nil and #entity.fluidbox > 0 then
-		sensor.tickFunction = ticksensor_fluidbox
-		return true
+		-- Ignored fluidbox entities.
+		if ignoredHandler[entity.name] == nil then
+			sensor.tickFunction = ticksensor_fluidbox
+			return true
+		end
 	end
 		
 end
@@ -317,6 +417,9 @@ function findTarget(sensor)
 	return false 
 end
 
+---------------------------------------
+-- pressure floor specific functions --
+
 pressurefloorHandler = {
 	["locomotive"] = "detected-train",
 	["cargo-wagon"] = "detected-train",
@@ -332,18 +435,18 @@ pressurefloorInventoriesHandler = {
 	["cargo-wagon"] = ticksensor_container,
 }
 
-function ticksensor_pressurefloor(sensor)
+function ticksensor_pressurefloor(sensor, detected_table)
 	if sensor.tilewait == nil then
 		if sensor.base.energy > 0 then
 			local targets = sensor.base.surface.find_entities(sensor.tiles)
 			for _,entity in ipairs(targets) do
 				local detected = pressurefloorHandler[entity.type]
 				if detected ~= nil then
-					sensor.output.insert{name = detected, count = 1}
+					add_detected_signals(detected_table, detected, 1)
 					local inventory_insert_func = pressurefloorInventoriesHandler[entity.type]
 					if inventory_insert_func ~= nil then
 						sensor.target = entity
-						inventory_insert_func(sensor)
+						inventory_insert_func(sensor, detected_table)
 						sensor.target = nil
 					end
 				end
@@ -459,6 +562,9 @@ function findsingletile(x, y, surface, collectedTiles)
 	end
 end
 
+------------------------------
+-- creation and destruction --
+
 function getAdjPos(entity)
 	local dir = entity.direction
 	local posX_A = entity.position.x
@@ -487,16 +593,22 @@ function createSensor(entity)
 		
 		local posX_A, posY_A, posX_B, posY_B = getAdjPos(entity)
 		
-		local output = entity.surface.create_entity{name = "directional-sensor-output", position = {posX_A, posY_A}, force = entity.force}
-		output.destructible = false
-		output.operable = false
-		
-		local sensor = {base = entity, output = output, targetX = posX_B, targetY = posY_B}
+		local sensor = {base = entity, output = createOutput(entity), targetX = posX_B, targetY = posY_B}
 		table.insert(global.sensors, sensor)
 		
-		insertAt(entity.position, sensor)
+		insertAt(sensor.base.position, sensor)
 		insertAt(sensor.output.position, sensor)
 	end
+end
+
+function createOutput(entity)
+	local posX_A, posY_A, posX_B, posY_B = getAdjPos(entity)
+	
+	local output = entity.surface.create_entity{name = "sensor-output", position = {posX_A, posY_A}, force = entity.force}
+	output.destructible = false
+	output.operable = false
+		
+	return output
 end
 
 function removeBase(sensor)
@@ -504,13 +616,12 @@ function removeBase(sensor)
 end
 
 function removeOutput(sensor)
-	sensor.output.get_inventory(1).clear()
 	sensor.base.destroy()
 end
 
 removeHandler = {
 	["directional-sensor"] = removeBase,
-	["directional-sensor-output"] = removeOutput,
+	["sensor-output"] = removeOutput,
 }
 
 function removeSensor(entity)

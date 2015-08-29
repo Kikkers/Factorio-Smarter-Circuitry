@@ -337,13 +337,33 @@ function setIndicator(actuator)
 	end
 end
 
+function loopDestroy(list)
+	for _, v in pairs(list) do
+		if v ~= nil and v.valid then
+			v.destroy()
+		end
+	end
+end
+
+function removeIndicators(entity)
+	local x = entity.position.x
+	local y = entity.position.y
+	loopDestroy(entity.surface.find_entities_filtered{area = {{x - 0.5, y - 0.5}, {x + 0.5, y + 0.5}}, name = "indicator-green"})
+	loopDestroy(entity.surface.find_entities_filtered{area = {{x - 0.5, y - 0.5}, {x + 0.5, y + 0.5}}, name = "indicator-orange"})
+	loopDestroy(entity.surface.find_entities_filtered{area = {{x - 0.5, y - 0.5}, {x + 0.5, y + 0.5}}, name = "indicator-red"})
+end
+
 function removeActuator(entity)
 	if entity.name == "directional-actuator" then
 		local actuator = getAt(entity.position)
-		tryDeactivate(actuator)
-		restoreGateSegments(actuator)
-		if actuator.indicator ~= nil and actuator.indicator.valid then
-			actuator.indicator.destroy()
+		if actuator == nil then
+			removeIndicators(entity)
+		else
+			tryDeactivate(actuator)
+			restoreGateSegments(actuator)
+			if actuator.indicator ~= nil and actuator.indicator.valid then
+				actuator.indicator.destroy()
+			end
 		end
 	end
 end

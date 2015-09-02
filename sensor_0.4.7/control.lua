@@ -154,14 +154,22 @@ end
 -- tick event (type specific functions) --
 
 function ticksensor_belt(sensor, detected_table) 
-	local left = sensor.target.get_transport_line(1).get_item_count() -- left
-	local right = sensor.target.get_transport_line(2).get_item_count() -- right
+	local left = sensor.target.get_transport_line(1) -- left
+	local right = sensor.target.get_transport_line(2) -- right
 
-	if left > 0 then 
-		add_detected_signals(detected_table, "belt-left", left)
+	if left.get_item_count() > 0 then 
+		add_detected_signals(detected_table, "belt-left", left.get_item_count())
+		local contents = left.get_contents()
+		for k,v in pairs(contents) do
+			add_detected_items(detected_table, k, v)
+		end
 	end
-	if right > 0 then 
-		add_detected_signals(detected_table, "belt-right", right) 
+	if right.get_item_count() > 0 then 
+		add_detected_signals(detected_table, "belt-right", right.get_item_count()) 
+		local contents = right.get_contents()
+		for k,v in pairs(contents) do
+			add_detected_items(detected_table, k, v)
+		end
 	end
 end
 

@@ -65,11 +65,7 @@ game.on_event(defines.events.on_tick, function(event)
 			if sensor.tickskip == nil then
 				
 				if sensor.target ~= nil and sensor.target.valid then
-					if sensor.base.energy > 0 then
-						tick_once(sensor)
-					--else -- Should output be cleared on loss of power?
-					--	tick_clear(sensor)
-					end
+					tick_once(sensor)
 				elseif sensor.tiles ~= nil then
 					tick_once(sensor)
 				else
@@ -81,6 +77,7 @@ game.on_event(defines.events.on_tick, function(event)
 					findTarget(sensor)
 				end
 			else
+				-- delay in special cases
 				sensor.tickskip = sensor.tickskip - 1
 				if sensor.tickskip <= 0 then
 					sensor.tickskip = nil
@@ -92,22 +89,30 @@ game.on_event(defines.events.on_tick, function(event)
 	end
 	
 	if game.tick % 60 == 0 then
-		-- table cleanup (nil removal)
-		local j=0
-		local n = #global.sensors
-		for i=1,n do
-			if global.sensors[i]~=nil then
-				j=j+1
-				global.sensors[j]=global.sensors[i]
-			end
-		end
-		for i=j+1,n do
-			global.sensors[i]=nil
-		end
+		table_nil_cleanup(global.sensors)
 	end
 end)
 
+function table_nil_cleanup(targetTable)
+	local j=0
+	local n = #targetTable
+	for i=1,n do
+		if targetTable[i]~=nil then
+			j=j+1
+			targetTable[j]=targetTable[i]
+		end
+	end
+	for i=j+1,n do
+		targetTable[i]=nil
+	end
+end
+
 function tick_once(sensor)
+	if sensor.base.energy <= 0 then
+		tick_clear()
+		return
+	end
+	
 	local detected_table = {items = {}, fluids = {}, signals = {}}
 	sensor.tickFunction(sensor, detected_table)
 	local t = {parameters = {}}

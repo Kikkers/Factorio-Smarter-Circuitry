@@ -67,11 +67,15 @@ game.on_event(defines.events.on_tick, function(event)
 				if sensor.target ~= nil and sensor.target.valid then
 					if sensor.base.energy > 0 then
 						tick_once(sensor)
+					--else -- Should output be cleared on loss of power?
+					--	tick_clear(sensor)
 					end
 				elseif sensor.tiles ~= nil then
 					tick_once(sensor)
 				else
-				
+					if sensor.tickFunction ~= nil then
+						tick_clear(sensor)
+					end
 					sensor.target = nil
 					sensor.tickFunction = nil
 					findTarget(sensor)
@@ -121,6 +125,10 @@ function tick_once(sensor)
 		i = i + 1
 	end
 	sensor.output.set_circuit_condition(1, t)
+end
+
+function tick_clear(sensor)
+	sensor.output.set_circuit_condition(1, {parameters = {}})
 end
 		
 function add_detected_items(detected_table, itemName, itemCount)

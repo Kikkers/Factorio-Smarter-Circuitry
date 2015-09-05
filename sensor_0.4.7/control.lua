@@ -109,7 +109,7 @@ end
 
 function tick_once(sensor)
 	if sensor.base.energy <= 0 then
-		tick_clear()
+		tick_clear(sensor)
 		return
 	end
 	

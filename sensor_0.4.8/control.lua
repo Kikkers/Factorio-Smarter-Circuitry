@@ -1,4 +1,5 @@
 require "defines"
+require "config"
 
 function prt(value) 
 	game.players[1].print(tostring(value))
@@ -61,8 +62,8 @@ end
 game.on_event(defines.events.on_tick, function(event)
 	
 	for i,sensor in ipairs(global.sensors) do
-		if sensor.base.valid and sensor.output.valid then
-			if sensor.tickskip == nil then
+		if sensor.tickskip == nil then
+			if sensor.base.valid and sensor.output.valid then
 				
 				if sensor.target ~= nil and sensor.target.valid then
 					tick_once(sensor)
@@ -72,19 +73,21 @@ game.on_event(defines.events.on_tick, function(event)
 					if sensor.tickFunction ~= nil then
 						tick_clear(sensor)
 					end
-					sensor.target = nil
 					sensor.tickFunction = nil
 					findTarget(sensor)
 				end
+				
+				apply_tick_variation(sensor)
+				
 			else
-				-- delay in special cases
-				sensor.tickskip = sensor.tickskip - 1
-				if sensor.tickskip <= 0 then
-					sensor.tickskip = nil
-				end
+				global.sensors[i] = nil
 			end
 		else
-			global.sensors[i] = nil
+			-- delay 
+			sensor.tickskip = sensor.tickskip - 1
+			if sensor.tickskip <= 0 then
+				sensor.tickskip = nil
+			end
 		end
 	end
 	
@@ -92,6 +95,14 @@ game.on_event(defines.events.on_tick, function(event)
 		table_nil_cleanup(global.sensors)
 	end
 end)
+
+function apply_tick_variation(sensor)
+	if SC_VARIATION and sensor.tickskip ~= nil then
+		local semirandom = sensor.base.x * 4049 - sensor.base.y * 7039
+		local variation_span = max(4, (sensor.tickskip / 10))
+		sensor.tickskip = sensor.tickskip + (semirandom % variation_span) - (variation_span / 2)
+	end
+end
 
 function table_nil_cleanup(targetTable)
 	local j=0
@@ -167,6 +178,8 @@ end
 -- tick event (type specific functions) --
 
 function ticksensor_belt(sensor, detected_table) 
+	sensor.tickskip = SC_BELT_TICKS
+
 	local left = sensor.target.get_transport_line(1) -- left
 	local right = sensor.target.get_transport_line(2) -- right
 
@@ -227,15 +240,14 @@ function insert_railtanker(sensor, detected_table)
 	end
 end
 
-function checkStationary(sensor)
-	if sensor.vehiclepos == nil then
-		sensor.vehiclepos = {x = sensor.target.position.x, y = sensor.target.position.y}
+function checkStationary(sensor, detectedSpeed)
+	if sensor.lastDetectedSpeed == nil then
+		sensor.lastDetectedSpeed = detectedSpeed
 	else
-		if sensor.vehiclepos.x == sensor.target.position.x and sensor.vehiclepos.y == sensor.target.position.y then
+		if sensor.lastDetectedSpeed == detectedSpeed and detectedSpeed == 0 then
 			return true
 		else
-			sensor.target = nil
-			sensor.vehiclepos = nil
+			sensor.lastDetectedSpeed = nil
 			findTarget(sensor)
 		end
 	end
@@ -243,41 +255,53 @@ function checkStationary(sensor)
 end
 
 function ticksensor_container(sensor, detected_table)
+	sensor.tickskip = SC_CHEST_TICKS
+	
 	insert_inventory(sensor, 1, detected_table)
 end
 
 function ticksensor_cargowagon(sensor, detected_table)
+	sensor.tickskip = SC_TRAIN_TICKS
+
 	add_detected_signals(detected_table, "detected-train", 1)
-	if checkStationary(sensor) then
+	if checkStationary(sensor, sensor.target.train.speed) then
 		insert_inventory(sensor, 1, detected_table)
 		insert_railtanker(sensor, detected_table)
 	end
 end
 
 function ticksensor_locomotive(sensor, detected_table)
+	sensor.tickskip = SC_TRAIN_TICKS
+
 	add_detected_signals(detected_table, "detected-train", 1)
-	if checkStationary(sensor) then
+	if checkStationary(sensor, sensor.target.train.speed) then
 		insert_inventory(sensor, 1, detected_table)
 		insert_energy(sensor, detected_table)
 	end
 end
 
 function ticksensor_car(sensor, detected_table)
+	sensor.tickskip = SC_CAR_TICKS
+
 	add_detected_signals(detected_table, "detected-car", 1)
-	if checkStationary(sensor) then
+	if checkStationary(sensor, sensor.target.speed) then
 		insert_inventory_car(sensor, detected_table)
 		insert_energy(sensor, detected_table)
 	end
 end
 
 function ticksensor_player(sensor, detected_table)
+	sensor.tickskip = SC_PLAYER_TICKS
+	
 	add_detected_signals(detected_table, "detected-player", 1)
-	if checkStationary(sensor) then
+	if checkStationary(sensor, 0) then
 		insert_inventory_player(sensor, detected_table)
 	end
 end
 
 function ticksensor_furnace(sensor, detected_table)
+	sensor.tickskip = SC_FURNACE_TICKS
+	
 	insert_inventory(sensor, 1, detected_table)
 	insert_inventory(sensor, 2, detected_table)
 	insert_inventory(sensor, 3, detected_table)
@@ -286,10 +310,14 @@ function ticksensor_furnace(sensor, detected_table)
 end
 
 function ticksensor_ammoturret(sensor, detected_table)
+	sensor.tickskip = SC_TURRET_TICKS
+	
 	insert_inventory(sensor, 1, detected_table)
 end
 
 function ticksensor_assembler(sensor, detected_table)
+	sensor.tickskip = SC_ASSEMBLER_TICKS
+	
 	insert_inventory(sensor, 2, detected_table)
 	insert_inventory(sensor, 3, detected_table)
 	--insert_inventory(sensor, 4, detected_table) --> ignore modules
@@ -297,6 +325,8 @@ function ticksensor_assembler(sensor, detected_table)
 end
 
 function ticksensor_lab(sensor, detected_table)
+	sensor.tickskip = SC_LAB_TICKS
+	
 	insert_inventory(sensor, 1, detected_table)
 	insert_inventory(sensor, 2, detected_table)
 	--insert_inventory(sensor, 3, detected_table) --> ignore modules
@@ -304,6 +334,8 @@ function ticksensor_lab(sensor, detected_table)
 end
 
 function ticksensor_roboport(sensor, detected_table)
+	sensor.tickskip = SC_ROBOPORT_TICKS
+	
 	if sensor.network == nil or not sensor.network.valid then
 		sensor.network = sensor.base.force.find_logistic_network_by_position(sensor.target.position, sensor.base.surface)
 	end
@@ -325,7 +357,7 @@ function ticksensor_micro_accumulator(sensor, detected_table)
 end
 
 function ticksensor_drill(sensor, detected_table)
-	sensor.tickskip = 20
+	sensor.tickskip = SC_DRILL_TICKS
 	
 	local pos = sensor.target.position
 	local radius = sensor.base.force.technologies["data-dummy-" .. sensor.target.name].research_unit_energy / 60
@@ -350,6 +382,8 @@ function ticksensor_drill(sensor, detected_table)
 end
 
 function ticksensor_fluidbox(sensor, detected_table)
+	sensor.tickskip = SC_PIPES_TICKS
+	
 	local fbs = sensor.target.fluidbox
 	for i = 1, #fbs do
 		if fbs[i] ~= nil then
@@ -415,6 +449,7 @@ function findFunction(sensor, entity)
 end
 
 function findTarget(sensor)
+	sensor.target = nil
 	local surface = sensor.base.surface
 	
 	local adj = surface.find_entities{{sensor.targetX - 0.1, sensor.targetY - 0.1}, {sensor.targetX + 0.1, sensor.targetY + 0.1}}
@@ -435,6 +470,8 @@ function findTarget(sensor)
 		return true
 	end
 	
+	-- put at the end because I don't want this to trigger if a target was actually found
+	sensor.tickskip = SC_SEARCH_TICKS
 	return false 
 end
 
@@ -458,6 +495,7 @@ pressurefloorInventoriesHandler = {
 
 function ticksensor_pressurefloor(sensor, detected_table)
 	if sensor.tilewait == nil then
+		sensor.tickskip = SC_PRESSUREFLOOR_TICKS
 		if sensor.base.energy > 0 then
 			local targets = sensor.base.surface.find_entities(sensor.tiles)
 			for _,entity in ipairs(targets) do
@@ -487,14 +525,12 @@ function ticksensor_pressurefloor(sensor, detected_table)
 	end
 end
 
-local tilelimit_length = 25
-local tilelimit_side = 24
 function findfloor(sensor, surface, collectedTiles)
 	local startX = sensor.targetX
 	local startY = sensor.targetY
 	local dir = sensor.base.direction
 	
-	findtilestrip(dir, startX, startY, tilelimit_length, surface, collectedTiles)
+	findtilestrip(dir, startX, startY, PRESSUREFLOOR_TILELIMIT_LENGTH, surface, collectedTiles)
 	findtilestrip_sides(dir, startX, startY, surface, collectedTiles)
 	
 	local minX = startX
@@ -522,9 +558,9 @@ function findtilestrip_sides(dir, startX, startY, surface, collectedTiles)
 	local numForward = #collectedTiles
 	local moreTiles = {}
 	
-	local numLeft = tilelimit_side
-	local numRight = tilelimit_side
-	for i = 1, tilelimit_side do
+	local numLeft = PRESSUREFLOOR_TILELIMIT_SIDE
+	local numRight = PRESSUREFLOOR_TILELIMIT_SIDE
+	for i = 1, PRESSUREFLOOR_TILELIMIT_SIDE do
 		findtilestrip(dir, startX + i * offsetX, startY + i * offsetY, numForward, surface, moreTiles)
 		if #moreTiles ~= numForward then
 			numLeft = i - 1
@@ -535,7 +571,7 @@ function findtilestrip_sides(dir, startX, startY, surface, collectedTiles)
 			moreTiles = {}
 		end
 	end
-	for i = 1, tilelimit_side do
+	for i = 1, PRESSUREFLOOR_TILELIMIT_SIDE do
 		findtilestrip(dir, startX - i * offsetX, startY - i * offsetY, numForward, surface, moreTiles)
 		if #moreTiles ~= numForward then
 			numRight = i - 1

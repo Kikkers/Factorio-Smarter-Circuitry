@@ -5,11 +5,11 @@ function prt(value)
 	game.players[1].print(tostring(value))
 end
 
-game.on_init(function()
+script.on_init(function()
 	init()
 end)
 
-game.on_load(function()
+script.on_load(function()
 	init()
 	
 	-- migration code for old functions
@@ -59,7 +59,7 @@ end
 -----------------------------------
 -- tick event (common functions) --
 
-game.on_event(defines.events.on_tick, function(event)
+script.on_event(defines.events.on_tick, function(event)
 	
 	for i,sensor in ipairs(global.sensors) do
 		if sensor.tickskip == nil then
@@ -691,24 +691,24 @@ function removeSensor(entity)
 	end
 end 
 
-game.on_event(defines.events.on_built_entity, function(event)
+script.on_event(defines.events.on_built_entity, function(event)
 	createSensor(event.created_entity)
 end)
 
-game.on_event(defines.events.on_robot_built_entity, function(event)
+script.on_event(defines.events.on_robot_built_entity, function(event)
 	createSensor(event.created_entity)
 end)
 
-game.on_event(defines.events.on_player_rotated_entity, function(event)
+script.on_event(defines.events.on_player_rotated_entity, function(event)
 	if event.entity.name == "directional-sensor" then
 		event.entity.direction = (event.entity.direction + 4) % 8 -- basically a fuck you to any rotation request
 	end
 end)
 
-game.on_event(defines.events.on_preplayer_mined_item, function(event)
+script.on_event(defines.events.on_preplayer_mined_item, function(event)
 	removeSensor(event.entity)
 end)
 
-game.on_event(defines.events.on_robot_pre_mined, function(event)
+script.on_event(defines.events.on_robot_pre_mined, function(event)
 	removeSensor(event.entity)
 end)

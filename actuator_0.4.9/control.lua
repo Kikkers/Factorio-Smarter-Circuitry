@@ -4,11 +4,11 @@ function prt(value)
 	game.players[1].print(tostring(value))
 end
 
-game.on_init(function()
+script.on_init(function()
 	init()
 end)
 
-game.on_load(function()
+script.on_load(function()
 	init()
 	
 	for _,actuator in ipairs(global.actuators) do
@@ -58,7 +58,7 @@ function table_nil_cleanup(targetTable)
 	end
 end
 
-game.on_event(defines.events.on_tick, function(event)
+script.on_event(defines.events.on_tick, function(event)
 	
 	for i,actuator in ipairs(global.actuators) do
 		if actuator.base.valid then
@@ -299,7 +299,7 @@ function createActuator(entity)
 	end
 end
 
-game.on_event(defines.events.on_player_rotated_entity, function(event)
+script.on_event(defines.events.on_player_rotated_entity, function(event)
 	if event.entity.name == "directional-actuator" then
 		
 		local targetX, targetY = getAdjPos(event.entity)
@@ -368,18 +368,18 @@ function removeActuator(entity)
 	end
 end
 
-game.on_event(defines.events.on_built_entity, function(event)
+script.on_event(defines.events.on_built_entity, function(event)
 	createActuator(event.created_entity)
 end)
 
-game.on_event(defines.events.on_robot_built_entity, function(event)
+script.on_event(defines.events.on_robot_built_entity, function(event)
 	createActuator(event.created_entity)
 end)
 
-game.on_event(defines.events.on_preplayer_mined_item, function(event)
+script.on_event(defines.events.on_preplayer_mined_item, function(event)
 	removeActuator(event.entity)
 end)
 
-game.on_event(defines.events.on_robot_pre_mined, function(event)
+script.on_event(defines.events.on_robot_pre_mined, function(event)
 	removeActuator(event.entity)
 end)

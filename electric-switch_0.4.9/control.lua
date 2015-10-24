@@ -4,11 +4,11 @@ function prt(value)
 	game.players[1].print(tostring(value))
 end
 
-game.on_init(function()
+script.on_init(function()
 	init()
 end)
 
-game.on_load(function()
+script.on_load(function()
 	init()
 end)
 
@@ -37,7 +37,7 @@ function getAt(pos)
 	return positions[pos.x][pos.y]
 end
 
-game.on_event(defines.events.on_tick, function(event)
+script.on_event(defines.events.on_tick, function(event)
 	
 	for i,switch in ipairs(global.switches) do
 		if switch ~= nil then
@@ -171,24 +171,24 @@ function removeSwitch(entity)
 	end
 end 
 
-game.on_event(defines.events.on_built_entity, function(event)
+script.on_event(defines.events.on_built_entity, function(event)
 	createSwitch(event.created_entity)
 end)
 
-game.on_event(defines.events.on_robot_built_entity, function(event)
+script.on_event(defines.events.on_robot_built_entity, function(event)
 	createSwitch(event.created_entity)
 end)
 
-game.on_event(defines.events.on_player_rotated_entity, function(event)
+script.on_event(defines.events.on_player_rotated_entity, function(event)
 	if event.entity.name == "electric-switch" then
 		event.entity.direction = (event.entity.direction + 6) % 8 -- basically a fuck you to any rotation request
 	end
 end)
 
-game.on_event(defines.events.on_preplayer_mined_item, function(event)
+script.on_event(defines.events.on_preplayer_mined_item, function(event)
 	removeSwitch(event.entity)
 end)
 
-game.on_event(defines.events.on_robot_pre_mined, function(event)
+script.on_event(defines.events.on_robot_pre_mined, function(event)
 	removeSwitch(event.entity)
 end)

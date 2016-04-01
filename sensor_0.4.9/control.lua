@@ -99,12 +99,12 @@ end)
 function apply_tick_variation(sensor)
 	if SC_VARIATION and sensor.tickskip ~= nil then
 		local semirandom 
-		if sensor.base.valid and sensor.base.x ~= nil then
-			semirandom = sensor.base.x * 4049 - sensor.base.y * 7039
+		if sensor.base.valid and sensor.base.position.x ~= nil then
+			semirandom = sensor.base.position.x * 4049 - sensor.base.position.y * 7039
 		else
 			semirandom = 4049
 		end
-		local variation_span = max(4, (sensor.tickskip / 10))
+		local variation_span = math.max(4, (sensor.tickskip / 10))
 		sensor.tickskip = sensor.tickskip + (semirandom % variation_span) - (variation_span / 2)
 	end
 end

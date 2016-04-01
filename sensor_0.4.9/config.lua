@@ -16,6 +16,7 @@ SC_CHEST_TICKS = default_update_ticks
 SC_ASSEMBLER_TICKS = default_update_ticks
 SC_FURNACE_TICKS = default_update_ticks
 SC_ROBOPORT_TICKS = 60
+SC_ENERGY_UNIT_TICKS = 60
 SC_TURRET_TICKS = default_update_ticks
 SC_LAB_TICKS = default_update_ticks
 SC_PIPES_TICKS = default_update_ticks

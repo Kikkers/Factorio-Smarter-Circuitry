@@ -99,12 +99,12 @@ end)
 function apply_tick_variation(sensor)
 	if SC_VARIATION and sensor.tickskip ~= nil then
 		local semirandom 
-		if sensor.base.valid and sensor.base.x ~= nil then
-			semirandom = sensor.base.x * 4049 - sensor.base.y * 7039
+		if sensor.base.valid and sensor.base.position.x ~= nil then
+			semirandom = sensor.base.position.x * 4049 - sensor.base.position.y * 7039
 		else
 			semirandom = 4049
 		end
-		local variation_span = max(4, (sensor.tickskip / 10))
+		local variation_span = math.max(4, (sensor.tickskip / 10))
 		sensor.tickskip = sensor.tickskip + (semirandom % variation_span) - (variation_span / 2)
 	end
 end
@@ -355,6 +355,11 @@ function ticksensor_roboport(sensor, detected_table)
 	insert_energy(sensor, detected_table)
 end
 
+function ticksensor_energy_unit(sensor, detected_table)
+	sensor.tickskip = SC_ENERGY_UNIT_TICKS
+	insert_energy(sensor, detected_table)
+end
+
 function ticksensor_micro_accumulator(sensor, detected_table)
 	if sensor.target.energy > 5000 then
 		add_detected_signals(detected_table, "energy-unit", 1)
@@ -440,7 +445,7 @@ function findFunction(sensor, entity)
 		if entity.name == "micro-accumulator" then
 			sensor.tickFunction = ticksensor_micro_accumulator
 		else
-			sensor.tickFunction = insert_energy
+			sensor.tickFunction = ticksensor_energy_unit
 		end 
 		return true
 	elseif entity.fluidbox ~= nil and #entity.fluidbox > 0 then

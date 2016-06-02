@@ -26,9 +26,7 @@ function init()
 			insertAt(actuator.base.position, actuator)
 		end
 	end
-	if global.gateforce == nil then
-		global.gateforce = game.create_force("gate")
-	end
+	global.gateforce = game.forces["gate"] or game.create_force("gate")
 end
 
 positions = {}
